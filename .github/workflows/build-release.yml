@@ -1,0 +1,138 @@
+name: Build and Release
+
+# 推一个 v<x.y.z> tag 即触发完整发版流程：
+#   构建 -> 打包 -> 生成 version.json -> 创建 GitHub Release
+# GitHub Release 一旦 published，会再触发 Mirror release to CNB。
+on:
+  push:
+    tags:
+      - 'v*'
+  # 支持对某个已存在的 tag 重跑（例如构建失败后补发）
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要构建发布的 tag，必须已存在，例如 v0.1.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  PROJECT: SvcTool.csproj
+  RUNTIME: win-x64
+  # CNB 仓库路径，改动时同步修改 sync-cnb.yml / mirror-cnb.yml
+  CNB_REPO: zmzhao/SvcTool
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Resolve version from tag
+        id: meta
+        shell: pwsh
+        run: |
+          $tag = '${{ inputs.tag || github.ref_name }}'
+          if ($tag -notmatch '^v\d+\.\d+\.\d+') {
+            throw "tag '$tag' 不符合 v<major>.<minor>.<patch> 约定，拒绝发版"
+          }
+          $version = $tag.Substring(1)
+          "tag=$tag"         >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "tag = $tag"
+          Write-Host "version = $version"
+
+      - name: Publish (self-contained single-file exe)
+        shell: pwsh
+        run: |
+          dotnet publish $env:PROJECT `
+            -c Release `
+            -r $env:RUNTIME `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:Version=${{ steps.meta.outputs.version }} `
+            -o dist/exe
+
+          Get-ChildItem dist/exe | Select-Object Name, Length | Format-Table -AutoSize
+
+      - name: Package artifacts and version.json
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ steps.meta.outputs.version }}'
+          $tag     = '${{ steps.meta.outputs.tag }}'
+          $base    = "SvcTool-$version-win-x64"
+
+          New-Item -ItemType Directory -Force dist/assets | Out-Null
+
+          # 便携版：单文件 exe
+          Copy-Item dist/exe/SvcTool.exe "dist/assets/$base.exe"
+
+          # 压缩包：exe + pdb，便于线上崩溃时排查
+          Compress-Archive -Path dist/exe/SvcTool.exe, dist/exe/SvcTool.pdb `
+                           -DestinationPath "dist/assets/$base.zip" -Force
+
+          # version.json —— 程序内自动更新读的就是这个文件，字段保持稳定
+          $files = Get-ChildItem dist/assets/* | ForEach-Object {
+            $kind = switch ($_.Extension.ToLowerInvariant()) {
+              '.exe'   { 'portable'  }
+              '.zip'   { 'archive'   }
+              '.msi'   { 'installer' }
+              default  { 'other'     }
+            }
+            [ordered]@{
+              name   = $_.Name
+              size   = $_.Length
+              sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              kind   = $kind
+            }
+          }
+
+          $manifest = [ordered]@{
+            version     = $version
+            tag         = $tag
+            releaseDate = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+            files       = @($files)
+            mirrors     = [ordered]@{
+              github = "https://github.com/${{ github.repository }}/releases/tag/$tag"
+              cnb    = "https://cnb.cool/${{ env.CNB_REPO }}/-/releases/tag/$tag"
+            }
+          }
+
+          # 必须是无 BOM 的 UTF-8：带 BOM 会坑到一部分 JSON 解析实现。
+          # 用 .NET API 而不是 Set-Content -Encoding utf8NoBOM，这样 PowerShell 5.1 / 7 都能跑。
+          $json = $manifest | ConvertTo-Json -Depth 6
+          [System.IO.File]::WriteAllText(
+            (Join-Path $PWD 'dist/assets/version.json'),
+            $json,
+            (New-Object System.Text.UTF8Encoding($false))
+          )
+
+          Write-Host '--- assets ---'
+          Get-ChildItem dist/assets | Select-Object Name, Length | Format-Table -AutoSize
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          files: dist/assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          # 重跑时覆盖同名附件
+          overwrite_files: true

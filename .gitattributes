@@ -8,6 +8,14 @@
 *.targets  text
 *.json     text
 *.md       text
+*.yml      text
+*.yaml     text
+
+# shell 脚本必须用 LF，否则在 Linux runner 上执行会报 `\r: command not found`
+*.sh       text eol=lf
+
+# PowerShell 脚本带 UTF-8 BOM，行尾交给 git 自己处理
+*.ps1      text
 
 *.png      binary
 *.jpg      binary

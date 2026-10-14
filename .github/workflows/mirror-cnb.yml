@@ -1,0 +1,118 @@
+name: Mirror release to CNB
+
+# 把 GitHub Release 的附件镜像到 CNB Release，供国内快速下载。
+# 触发链：build-release.yml 建好 GitHub Release -> release published -> 这里。
+# 失败不影响 GitHub 侧的发版，缺什么用 workflow_dispatch 指定 tag 补跑即可。
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要镜像到 CNB 的 tag，例如 v0.1.0'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  # CNB 仓库路径，改动时同步修改 build-release.yml / sync-cnb.yml
+  CNB_REPO: zmzhao/SvcTool
+
+concurrency:
+  group: mirror-cnb-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve tag
+        id: meta
+        run: |
+          set -euo pipefail
+          tag='${{ inputs.tag || github.event.release.tag_name }}'
+          if [ -z "$tag" ]; then
+            echo '::error::无法确定要镜像的 tag'
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "resolved tag: $tag"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 需要完整历史：下面要把 tag 从本地推到 CNB，而浅克隆是推不出去的
+          fetch-depth: 0
+
+      # sync-cnb.yml 和本 workflow 是被同一个 tag push 并行触发的，存在竞态：
+      # 走到这里时 CNB 上可能还没有这个 tag，建 Release 会失败。
+      # 所以这里幂等地把 tag 自己推过去，让本 workflow 不依赖 sync-cnb 是否完成。
+      - name: Ensure tag exists on CNB
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # 用 credential helper 而不是把 token 拼进 remote URL，
+          # 避免出错时 token 随 URL 出现在日志里
+          git config --local 'credential.https://cnb.cool.helper' \
+            '!f() { echo username=cnb; echo "password=$CNB_TOKEN"; }; f'
+          git remote add cnb "https://cnb.cool/$CNB_REPO.git"
+          git fetch origin "+refs/tags/$TAG:refs/tags/$TAG"
+          git push cnb "refs/tags/$TAG" --force
+
+      - name: Download assets from GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh release download '${{ steps.meta.outputs.tag }}' \
+            --repo '${{ github.repository }}' \
+            --dir dist \
+            --clobber
+          ls -l dist
+
+      - name: Upload assets to CNB
+        uses: ./.github/actions/cnb-release
+        with:
+          repo: ${{ env.CNB_REPO }}
+          tag: ${{ steps.meta.outputs.tag }}
+          title: ${{ steps.meta.outputs.tag }}
+          dir: dist
+          token: ${{ secrets.CNB_TOKEN }}
+          # 预发布版本不抢 latest，否则程序内更新会升到 beta 版
+          make-latest: ${{ github.event.release.prerelease && 'false' || 'true' }}
+          body: |
+            本版同步自 GitHub Release `${{ steps.meta.outputs.tag }}`。
+
+            原始发布：https://github.com/${{ github.repository }}/releases/tag/${{ steps.meta.outputs.tag }}
+
+      # 这一步不带任何鉴权，顺带验证「匿名能否下载」——这是程序内自动更新的前提
+      - name: Verify public download URLs
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          status=0
+          for f in dist/*; do
+            [ -f "$f" ] || continue
+            name="$(basename "$f")"
+            want="$(stat -c '%s' "$f")"
+            for url in \
+              "https://cnb.cool/$CNB_REPO/-/releases/download/$TAG/$name" \
+              "https://cnb.cool/$CNB_REPO/-/releases/latest/download/$name"
+            do
+              got="$(curl -sSL -o /dev/null -w '%{size_download}' --max-time 120 "$url" || echo 0)"
+              if [ "$got" = "$want" ]; then
+                echo "OK   $url  ($got 字节)"
+              else
+                echo "::warning::下载校验不通过：$url （期望 $want 字节，实际 $got 字节）"
+                status=1
+              fi
+            done
+          done
+          exit $status

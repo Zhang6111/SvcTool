@@ -1,0 +1,68 @@
+name: Sync code to CNB
+
+# 把 GitHub 上的全部分支和标签镜像到 CNB。
+# CNB 侧是纯只读镜像（只用于国内下载），任何情况下不要直接在 CNB 上提交。
+on:
+  push:
+  # 新增分支/删除分支不会触发 push，用定时兜底 + 手动补同步
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+# 全局串行：任意两次同步都排队执行，避免两个 git push --all 同时打向 CNB 造成竞态
+concurrency:
+  group: sync-cnb
+  cancel-in-progress: false
+
+env:
+  # CNB 仓库路径，改动时同步修改 build-release.yml / mirror-cnb.yml
+  CNB_REPO: zmzhao/SvcTool
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # git-sync 内部执行的是 `git push target --all`，只会推「本地分支」。
+      # 而 actions/checkout 只把当前 ref 建成本地分支，其余分支都在
+      # refs/remotes/origin/* 下，直接跑插件的结果是「只同步了 main」。
+      # 这一步把远程分支实体化成同名本地分支。
+      - name: Materialize all branches locally
+        run: |
+          set -euo pipefail
+          git fetch --prune origin \
+            '+refs/heads/*:refs/remotes/origin/*' \
+            '+refs/tags/*:refs/tags/*'
+
+          current="$(git rev-parse --abbrev-ref HEAD)"
+          while read -r ref; do
+            [ -z "$ref" ] && continue
+            [ "$ref" = "HEAD" ] && continue
+            [ "$ref" = "$current" ] && continue
+            git branch -f "$ref" "refs/remotes/origin/$ref"
+          done < <(git for-each-ref --format='%(refname:lstrip=3)' refs/remotes/origin)
+
+          echo '--- 将被推送的本地分支 ---'
+          git branch -vv
+          echo '--- 标签 ---'
+          git tag -l
+
+      - name: Sync to CNB
+        uses: docker://tencentcom/git-sync
+        env:
+          PLUGIN_TARGET_URL: https://cnb.cool/${{ env.CNB_REPO }}.git
+          PLUGIN_AUTH_TYPE: https
+          PLUGIN_USERNAME: cnb
+          PLUGIN_PASSWORD: ${{ secrets.CNB_TOKEN }}
+          # 注意：插件里是 ${PLUGIN_FORCE:+"--force"}，只要该变量非空就会加 --force，
+          # 写 "false" 同样会强推。CNB 是纯镜像，强推正是我们要的。
+          PLUGIN_FORCE: 'true'
+          PLUGIN_PUSH_TAGS: 'true'
+          # 插件自身的提交身份，避免用默认的 Git Sync Plugin
+          PLUGIN_GIT_USER: github-actions[bot]
+          PLUGIN_GIT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com

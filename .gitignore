@@ -4,6 +4,8 @@
 [Oo]ut/
 [Dd]ebug/
 [Rr]elease/
+dist/
+artifacts/
 x64/
 x86/
 [Ww][Ii][Nn]32/

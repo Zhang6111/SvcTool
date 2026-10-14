@@ -1,0 +1,58 @@
+name: Publish release to CNB
+description: 在 CNB 上创建/更新 Release，并把一个目录下的全部文件上传为附件
+
+inputs:
+  repo:
+    description: CNB 仓库路径，例如 zmzhao/SvcTool
+    required: true
+  tag:
+    description: 该 Release 对应的 tag
+    required: true
+  title:
+    description: Release 标题，留空则等于 tag
+    required: false
+    default: ''
+  body:
+    description: Release 说明（Markdown）
+    required: false
+    default: ''
+  dir:
+    description: 待上传文件所在目录，只取该目录下第一层的普通文件
+    required: true
+  token:
+    description: CNB 访问令牌
+    required: true
+  api:
+    description: CNB OpenAPI 地址
+    required: false
+    default: https://api.cnb.cool
+  make-latest:
+    description: >-
+      是否把这个 Release 设为 CNB 上的「最新版本」。
+      程序内更新用的是 /-/releases/latest/download/ 这个永远不变的地址，
+      所以正式版要传 true；预发布版传 false，避免用户被升级到 beta。
+    required: false
+    default: 'true'
+  upload-method:
+    description: >-
+      上传附件使用的 HTTP 方法（PUT 或 POST）。CNB 文档没有写明 upload_url 期望的
+      请求方式，先用 PUT；若实测不通，改这里即可，无需动别处。
+    required: false
+    default: PUT
+
+runs:
+  using: composite
+  steps:
+    - name: Publish assets to CNB
+      shell: bash
+      env:
+        CNB_API: ${{ inputs.api }}
+        CNB_REPO: ${{ inputs.repo }}
+        CNB_TAG: ${{ inputs.tag }}
+        CNB_NAME: ${{ inputs.title }}
+        CNB_BODY: ${{ inputs.body }}
+        CNB_DIR: ${{ inputs.dir }}
+        CNB_TOKEN: ${{ inputs.token }}
+        CNB_UPLOAD_METHOD: ${{ inputs.upload-method }}
+        CNB_MAKE_LATEST: ${{ inputs.make-latest }}
+      run: bash "${{ github.action_path }}/publish.sh"

@@ -1,0 +1,24 @@
+<Project>
+
+  <!--
+    版本号的单一来源。
+
+    - 本地构建 / Visual Studio：使用下面的默认值
+    - CI：GitHub Actions 通过 `-p:Version=<tag 去掉 v>` 覆盖
+      （命令行属性优先级高于 Directory.Build.props，所以这里不用担心被覆盖失败）
+
+    发版时只需要推一个形如 v1.2.3 的 tag，其余全部由 CI 注入。
+  -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Product>SvcTool</Product>
+    <AssemblyTitle>SvcTool</AssemblyTitle>
+    <Description>将 exe 注册为 Windows 服务的工具，便于服务器/电脑重启后程序自动运行</Description>
+    <Company>Zhang6111</Company>
+    <Authors>Zhang6111</Authors>
+    <Copyright>Copyright (c) 2026 Zhang6111</Copyright>
+    <RepositoryUrl>https://github.com/Zhang6111/SvcTool</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+</Project>
