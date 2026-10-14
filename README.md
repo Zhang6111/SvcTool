@@ -145,3 +145,16 @@ Directory.Build.props       版本号与程序集元数据的单一来源
 - `sync-cnb.yml` 只强推分支和标签，**不会删除** CNB 上已被删掉的远端分支（git-sync 插件不支持 `--prune`）。需要时手动去 CNB 删。
 - CNB 的 OpenAPI（`api.cnb.cool`）**即使对公开仓库也要求登录**，所以程序内更新**不要**调 API，只用上面「下载地址约定」里的网页直链。
 - 目前只产出 `.exe` 和 `.zip`。将来要加 msi，改动集中在 `build-release.yml` 的打包步骤。
+- 没配 `CNB_TOKEN` 时两个同步 workflow 会打一条 warning 然后跳过，不会挂红叉。
+
+## CNB Release 接口实测结论
+
+以下都是 2026-10 在这台机器上实测确认的，不是文档推断：
+
+| 结论 | 说明 |
+| --- | --- |
+| **tag 必须先存在** | 用不存在的 tag 建 Release 返回 `HTTP 400`。所以 `mirror-cnb.yml` 里才有「Ensure tag exists on CNB」那一步。 |
+| **上传用 `PUT` + `--data-binary`** | `upload_url` 只接受这一种。`PUT --upload-file`、`POST --data-binary`、`POST multipart` 全部返回 400。 |
+| `upload_url` 在 `asset.cnb.cool` | 预签名地址，`expires_in_sec` 为 43200（12 小时），不需要额外带鉴权头。 |
+| 必须调 `verify_url` | 上传完要 `POST verify_url` 确认，否则附件不生效。 |
+| **匿名可下载** | `https://cnb.cool/<repo>/-/releases/download/<tag>/<file>` 不带任何鉴权即可下载，已验证字节数一致。 |

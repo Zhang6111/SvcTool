@@ -23,7 +23,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 没配 secret 时不要挂红叉，给个明确提示然后跳过
+      - name: Check CNB_TOKEN
+        id: guard
+        run: |
+          if [ -z '${{ secrets.CNB_TOKEN }}' ]; then
+            echo '::warning title=缺少 CNB_TOKEN::CNB 代码同步已跳过。请到 Settings -> Secrets and variables -> Actions 添加名为 CNB_TOKEN 的 secret。'
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -33,6 +45,7 @@ jobs:
       # refs/remotes/origin/* 下，直接跑插件的结果是「只同步了 main」。
       # 这一步把远程分支实体化成同名本地分支。
       - name: Materialize all branches locally
+        if: steps.guard.outputs.skip != 'true'
         run: |
           set -euo pipefail
           git fetch --prune origin \
@@ -53,6 +66,7 @@ jobs:
           git tag -l
 
       - name: Sync to CNB
+        if: steps.guard.outputs.skip != 'true'
         uses: docker://tencentcom/git-sync
         env:
           PLUGIN_TARGET_URL: https://cnb.cool/${{ env.CNB_REPO }}.git

@@ -68,8 +68,11 @@ function Invoke-CnbApi {
         TimeoutSec     = 120
     }
     if ($PSBoundParameters.ContainsKey('Body') -and $null -ne $Body) {
-        $params['Body']        = ($Body | ConvertTo-Json -Depth 10 -Compress)
-        $params['ContentType'] = 'application/json'
+        $json = $Body | ConvertTo-Json -Depth 10 -Compress
+        # 必须传字节数组：直接传 string 时 Windows PowerShell 5.1 会按 ANSI 编码，
+        # 中文会全变成 ?（实测踩过）。
+        $params['Body']        = [System.Text.Encoding]::UTF8.GetBytes($json)
+        $params['ContentType'] = 'application/json; charset=utf-8'
     }
 
     try {

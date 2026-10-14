@@ -41,7 +41,19 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "resolved tag: $tag"
 
+      # 没配 secret 时不要挂红叉，给个明确提示然后跳过
+      - name: Check CNB_TOKEN
+        id: guard
+        run: |
+          if [ -z '${{ secrets.CNB_TOKEN }}' ]; then
+            echo '::warning title=缺少 CNB_TOKEN::CNB 附件镜像已跳过。请到 Settings -> Secrets and variables -> Actions 添加名为 CNB_TOKEN 的 secret。'
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.guard.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           # 需要完整历史：下面要把 tag 从本地推到 CNB，而浅克隆是推不出去的
@@ -51,6 +63,7 @@ jobs:
       # 走到这里时 CNB 上可能还没有这个 tag，建 Release 会失败。
       # 所以这里幂等地把 tag 自己推过去，让本 workflow 不依赖 sync-cnb 是否完成。
       - name: Ensure tag exists on CNB
+        if: steps.guard.outputs.skip != 'true'
         env:
           CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
           TAG: ${{ steps.meta.outputs.tag }}
@@ -65,6 +78,7 @@ jobs:
           git push cnb "refs/tags/$TAG" --force
 
       - name: Download assets from GitHub Release
+        if: steps.guard.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -77,6 +91,7 @@ jobs:
           ls -l dist
 
       - name: Upload assets to CNB
+        if: steps.guard.outputs.skip != 'true'
         uses: ./.github/actions/cnb-release
         with:
           repo: ${{ env.CNB_REPO }}
@@ -93,6 +108,7 @@ jobs:
 
       # 这一步不带任何鉴权，顺带验证「匿名能否下载」——这是程序内自动更新的前提
       - name: Verify public download URLs
+        if: steps.guard.outputs.skip != 'true'
         env:
           TAG: ${{ steps.meta.outputs.tag }}
         run: |
