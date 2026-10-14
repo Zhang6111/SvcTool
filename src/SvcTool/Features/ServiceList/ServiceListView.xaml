@@ -1,0 +1,291 @@
+<UserControl x:Class="SvcTool.Features.ServiceList.ServiceListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:SvcTool.Features.ServiceList"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=local:ServiceListViewModel}"
+             d:DesignHeight="640"
+             d:DesignWidth="1120">
+
+    <!--
+        服务列表页。
+
+        这个文件里只有长相，没有任何行为逻辑。
+        DataContext 由 App.xaml.cs（组合根）注入，见 设计文档.md 第 1.6 节。
+    -->
+
+    <UserControl.Resources>
+        <!-- 布尔转可见性，用于信息条的显示与隐藏 -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </UserControl.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================ -->
+        <!-- 标题区                                                       -->
+        <!-- ============================================================ -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="服务管理" Style="{StaticResource App.Text.PageTitle}" />
+            <Button HorizontalAlignment="Right"
+                    Style="{StaticResource App.Button.Primary}"
+                    IsEnabled="False"
+                    ToolTip="创建服务功能将在 M2 阶段实现">
+                <StackPanel Orientation="Horizontal">
+                    <Path Style="{StaticResource App.Icon}"
+                          Data="{StaticResource Icon.Plus}"
+                          Stroke="{DynamicResource App.TextOnAccent}"
+                          Margin="0,0,6,0" />
+                    <TextBlock Text="创建服务" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- ============================================================ -->
+        <!-- 筛选区                                                       -->
+        <!-- ============================================================ -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox Grid.Column="0"
+                     Style="{StaticResource App.TextBox}"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="按显示名或服务名搜索" />
+
+            <ComboBox Grid.Column="1"
+                      Margin="8,0,0,0"
+                      MinWidth="120"
+                      Height="32"
+                      VerticalContentAlignment="Center"
+                      ItemsSource="{Binding CategoryFilters}"
+                      DisplayMemberPath="Title"
+                      SelectedItem="{Binding SelectedCategoryFilter}"
+                      ToolTip="按分类筛选" />
+
+            <Button Grid.Column="3"
+                    Style="{StaticResource App.Button.Icon}"
+                    Command="{Binding RefreshCommand}"
+                    ToolTip="重新读取服务列表（F5）">
+                <Path Style="{StaticResource App.Icon}"
+                      Data="{StaticResource Icon.Refresh}"
+                      Stroke="{DynamicResource App.TextSecondary}" />
+            </Button>
+        </Grid>
+
+        <!-- ============================================================ -->
+        <!-- 服务列表                                                     -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource App.Surface}"
+                BorderBrush="{DynamicResource App.Border}"
+                BorderThickness="1"
+                CornerRadius="6">
+            <Grid>
+                <ListView ItemsSource="{Binding ServicesView}"
+                          SelectedItem="{Binding SelectedService}"
+                          BorderThickness="0"
+                          Background="Transparent"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="Height" Value="36" />
+                            <Setter Property="Padding" Value="4,0" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+
+                    <ListView.View>
+                        <GridView>
+                            <!-- 状态：颜色 + 文字双重表达，不单靠颜色 -->
+                            <GridViewColumn Header="状态" Width="96">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding StatusText}"
+                                                   Style="{StaticResource App.Text.Status}"
+                                                   VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <!-- 显示名。由本工具创建的服务额外加星标 -->
+                            <GridViewColumn Header="显示名" Width="180">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Path Style="{StaticResource App.Icon.Small.Solid}"
+                                                  Data="{StaticResource Icon.Star}"
+                                                  Fill="{DynamicResource App.Accent}"
+                                                  Margin="0,0,5,0"
+                                                  Visibility="{Binding IsCreatedByThisTool, Converter={StaticResource BoolToVisibility}}"
+                                                  ToolTip="由本工具创建" />
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       Style="{StaticResource App.Text.Body}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <!-- 服务名：技术信息，等宽字体 -->
+                            <GridViewColumn Header="服务名" Width="140">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding ServiceName}"
+                                                   Style="{StaticResource App.Text.Mono}"
+                                                   VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <!-- 分类徽章 -->
+                            <GridViewColumn Header="分类" Width="72">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ContentControl Content="{Binding CategoryText}"
+                                                        HorizontalAlignment="Left"
+                                                        VerticalAlignment="Center">
+                                            <ContentControl.Style>
+                                                <Style TargetType="ContentControl" BasedOn="{StaticResource App.Badge}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Category}" Value="Driver">
+                                                            <Setter Property="Background" Value="{DynamicResource App.CategoryDriverSoft}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource App.CategoryDriver}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Category}" Value="System">
+                                                            <Setter Property="Background" Value="{DynamicResource App.CategorySystemSoft}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource App.CategorySystem}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Category}" Value="User">
+                                                            <Setter Property="Background" Value="{DynamicResource App.CategoryUserSoft}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource App.CategoryUser}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ContentControl.Style>
+                                        </ContentControl>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+
+                            <GridViewColumn Header="启动方式"
+                                            Width="104"
+                                            DisplayMemberBinding="{Binding StartModeText}" />
+
+                            <GridViewColumn Header="登录身份"
+                                            Width="96"
+                                            DisplayMemberBinding="{Binding AccountText}" />
+
+                            <!-- 程序路径：文件不存在时标红提示 -->
+                            <GridViewColumn Header="程序路径" Width="300">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <!--
+                                            这里不能在 TextBlock 上同时用 Style 属性
+                                            和嵌套的 TextBlock.Style，否则报 MC3024。
+                                            基准样式通过 BasedOn 挂进来。
+                                        -->
+                                        <TextBlock Text="{Binding BinaryPath}"
+                                                   VerticalAlignment="Center"
+                                                   ToolTip="{Binding BinaryPath}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource App.Text.Mono}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding BinaryExists}" Value="False">
+                                                            <Setter Property="Foreground" Value="{DynamicResource App.Error}" />
+                                                            <Setter Property="ToolTip" Value="程序文件不存在，该服务无法启动" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+
+                <!-- 加载指示。没有服务时显示，读取期间也显示 -->
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="正在读取服务列表…"
+                               Style="{StaticResource App.Text.Caption}"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============================================================ -->
+        <!-- 信息条：出错时出现                                           -->
+        <!-- ============================================================ -->
+        <Border Grid.Row="3"
+                Margin="0,12,0,0"
+                Padding="12,10"
+                CornerRadius="4"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource App.ErrorBorder}"
+                Background="{DynamicResource App.ErrorSoft}"
+                Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel Orientation="Horizontal">
+                <Path Style="{StaticResource App.Icon}"
+                      Data="{StaticResource Icon.Error}"
+                      Stroke="{DynamicResource App.Error}"
+                      Margin="0,0,8,0"
+                      VerticalAlignment="Top" />
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Foreground="{DynamicResource App.Error}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- ============================================================ -->
+        <!-- 底部操作条                                                   -->
+        <!-- ============================================================ -->
+        <Grid Grid.Row="4" Margin="0,12,0,0">
+            <TextBlock Text="{Binding SummaryText}"
+                       Style="{StaticResource App.Text.Caption}"
+                       VerticalAlignment="Center" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="启动"
+                        Style="{StaticResource App.Button}"
+                        Command="{Binding StartCommand}"
+                        ToolTip="启动选中的服务" />
+                <Button Content="停止"
+                        Style="{StaticResource App.Button}"
+                        Margin="8,0,0,0"
+                        Command="{Binding StopCommand}"
+                        ToolTip="停止选中的服务。驱动服务无法停止，按钮会置灰" />
+                <Button Content="重启"
+                        Style="{StaticResource App.Button}"
+                        Margin="8,0,0,0"
+                        Command="{Binding RestartCommand}"
+                        ToolTip="先停止再启动" />
+                <Button Content="修改"
+                        Style="{StaticResource App.Button}"
+                        Margin="8,0,0,0"
+                        IsEnabled="False"
+                        ToolTip="修改服务功能将在 M2 阶段实现" />
+                <Button Content="删除"
+                        Style="{StaticResource App.Button.Danger}"
+                        Margin="8,0,0,0"
+                        IsEnabled="False"
+                        ToolTip="删除服务功能将在 M2 阶段实现" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

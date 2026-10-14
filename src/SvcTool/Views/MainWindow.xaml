@@ -1,0 +1,24 @@
+﻿<Window x:Class="SvcTool.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:serviceList="clr-namespace:SvcTool.Features.ServiceList"
+        Title="SvcTool - Windows 服务管理"
+        Width="1180"
+        Height="720"
+        MinWidth="940"
+        MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource App.SurfaceAlt}"
+        TextOptions.TextFormattingMode="Display">
+
+    <!--
+        主窗口外壳。
+
+        窗口本身不放任何业务内容，只是把功能页面装进来。
+        这样以后增加"设置""关于"等页面时，只需要在这里换内容，
+        不用动服务列表本身。
+
+        DataContext 由 App.xaml.cs 注入，这个文件里不做任何绑定相关的事。
+    -->
+    <serviceList:ServiceListView />
+</Window>

@@ -1,3 +1,14 @@
 <Solution>
-  <Project Path="SvcTool.csproj" />
+
+  <!--
+    项目顺序有讲究：Visual Studio 在还没记住用户选择时，会把列表里的第一个
+    项目当作启动项目。这里必须把可执行的界面项目放在最前面，
+    否则按 F5 会报"无法直接启动带有类库输出类型的项目"。
+
+    顺序：界面（可执行） -> 核心（类库） -> 测试（类库）
+  -->
+  <Project Path="src/SvcTool/SvcTool.csproj" />
+  <Project Path="src/SvcTool.Core/SvcTool.Core.csproj" />
+  <Project Path="tests/SvcTool.Core.Tests/SvcTool.Core.Tests.csproj" />
+
 </Solution>

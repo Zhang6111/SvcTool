@@ -1,0 +1,118 @@
+# SvcTool 代码风格与规范
+#
+# 这个文件由 Visual Studio、VS Code、Rider 自动读取，也参与编译时的代码风格检查。
+# 配合 Directory.Build.props 里的 TreatWarningsAsErrors，规范由编译器强制执行。
+#
+# 详细说明见 设计文档.md 第 1.9 节。
+
+root = true
+
+# ============================================================ 所有文件
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+# ============================================================ 按类型区分缩进
+
+[*.{cs,xaml}]
+indent_size = 4
+
+[*.{csproj,props,targets,slnx,xml,json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+indent_size = 2
+trim_trailing_whitespace = false
+
+[*.{sh}]
+end_of_line = lf
+indent_size = 2
+
+# ============================================================ C# 语言风格
+
+[*.cs]
+
+# 大括号：一律不省略，省略即编译失败
+csharp_prefer_braces = true:error
+csharp_prefer_simple_using_statement = true:suggestion
+
+# using 指令：System 开头优先，放在命名空间外面
+dotnet_sort_system_directives_first = true
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_separate_import_directive_groups = false
+
+# 类型推断：改与不改都不阻断构建，交给开发者按可读性判断
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = false:suggestion
+
+# 不强制使用 this. 前缀
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+dotnet_style_qualification_for_method = false:warning
+dotnet_style_qualification_for_event = false:warning
+
+# 修饰符顺序与可空表达
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+csharp_style_prefer_null_check_over_is_null = true:suggestion
+
+# 表达式体成员：简单成员可以用，但属性访问器保留大括号更清晰
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = when_on_single_line:suggestion
+csharp_style_expression_bodied_accessors = false:suggestion
+
+# ============================================================ 命名规则
+
+# 私有字段：_camelCase
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# 接口：I 开头，PascalCase
+dotnet_naming_rule.interfaces_pascal.severity = warning
+dotnet_naming_rule.interfaces_pascal.symbols = interfaces
+dotnet_naming_rule.interfaces_pascal.style = pascal_prefix_i
+
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+
+dotnet_naming_style.pascal_prefix_i.required_prefix = I
+dotnet_naming_style.pascal_prefix_i.capitalization = pascal_case
+
+# 公开成员：PascalCase
+dotnet_naming_rule.public_members_pascal.severity = warning
+dotnet_naming_rule.public_members_pascal.symbols = public_members
+dotnet_naming_rule.public_members_pascal.style = pascal_case_style
+
+dotnet_naming_symbols.public_members.applicable_kinds = property,method,event,field
+dotnet_naming_symbols.public_members.applicable_accessibilities = public,internal,protected
+
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+# ============================================================ 分析器规则调整
+#
+# 原则：真正有价值的规则保持严格，纯风格偏好降为提示，避免噪音淹没真问题。
+
+# 不强制在每个 await 上加 ConfigureAwait（这是库作者才需要关心的事）
+dotnet_diagnostic.CA2007.severity = none
+
+# 不要求使用 LoggerMessage（我们不用日志框架）
+dotnet_diagnostic.CA1848.severity = none
+
+# 不强制主构造函数
+dotnet_diagnostic.IDE0290.severity = none
+
+# 测试代码里的下划线命名是惯例
+[**/tests/**/*.cs]
+dotnet_naming_rule.public_members_pascal.severity = none
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA1861.severity = none

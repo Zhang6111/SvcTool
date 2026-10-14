@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      核心层：服务管理的全部逻辑都在这里。
+
+      目标框架选 net10.0-windows 的原因：这一层本质就是调用 Windows 服务控制管理器，
+      天然是 Windows 专属，用 windows 变体可以自由使用 Windows 专属的 BCL 接口。
+
+      这里刻意不引用 WPF，保证核心逻辑能脱离界面单独测试。
+    -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>SvcTool.Core</RootNamespace>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+</Project>

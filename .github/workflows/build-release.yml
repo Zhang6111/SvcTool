@@ -1,19 +1,30 @@
 name: Build and Release
 
-# 推一个 v<x.y.z> tag 即触发完整发版流程：
-#   构建 -> 打包 -> 生成 version.json -> 创建 GitHub Release
-# GitHub Release 一旦 published，会再触发 Mirror release to CNB。
+# 两种用法：
+#
+#   正式发版：推一个 v<x.y.z> 格式的 tag
+#      构建 -> 打包 -> 生成 version.json -> 创建 GitHub Release -> 同步到 CNB
+#
+#   只验证流程（试跑）：在 Actions 页面手动触发，勾上 dry_run
+#      只构建打包，不创建 Release、不同步 CNB、不占用任何版本号
+#
+# dry_run 这个开关是刻意加的。之前用真实版本号去验证发布流程，
+# 把 v0.1.0 和 v0.1.1 白白消耗掉了，而当时程序还没有任何功能。
 on:
   push:
     tags:
       - 'v*'
-  # 支持对某个已存在的 tag 重跑（例如构建失败后补发）
   workflow_dispatch:
     inputs:
       tag:
-        description: '要构建发布的 tag，必须已存在，例如 v0.1.0'
-        required: true
+        description: '要构建发布的 tag，必须已存在，例如 v0.1.0。试跑模式下可以留空。'
+        required: false
         type: string
+      dry_run:
+        description: '试跑模式：只构建打包，不创建 Release、不同步 CNB、不占用版本号'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -29,32 +40,56 @@ jobs:
     runs-on: windows-latest
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
+      dry_run: ${{ steps.meta.outputs.dry_run }}
 
     steps:
+      # 解析动作放在最前面：它只读事件上下文，不需要仓库内容，
+      # 而 Checkout 需要用这里算出来的 ref。
+      - name: Resolve version and ref
+        id: meta
+        shell: pwsh
+        run: |
+          $isDryRun  = '${{ inputs.dry_run }}' -eq 'true'
+          $inputTag  = '${{ inputs.tag }}'
+          $refName   = '${{ github.ref_name }}'
+          $githubRef = '${{ github.ref }}'
+
+          if ($isDryRun) {
+            # 试跑模式：版本号固定成一个一眼就能看出不是正式版的字符串，
+            # 也不校验 tag 格式（试跑可能根本没有 tag）。
+            $tag         = if ($inputTag) { $inputTag } else { 'dry-run' }
+            $version     = '0.0.0-dryrun'
+            $checkoutRef = if ($inputTag) { $inputTag } else { $githubRef }
+            Write-Host '试跑模式：不创建 Release、不同步 CNB、不占用版本号'
+          }
+          else {
+            $tag = if ($inputTag) { $inputTag } else { $refName }
+            if ($tag -notmatch '^v\d+\.\d+\.\d+') {
+              throw "tag '$tag' 不符合 v<major>.<minor>.<patch> 约定，拒绝发版"
+            }
+            $version     = $tag.Substring(1)
+            $checkoutRef = $tag
+          }
+
+          "tag=$tag"                     >> $env:GITHUB_OUTPUT
+          "version=$version"             >> $env:GITHUB_OUTPUT
+          "ref=$checkoutRef"             >> $env:GITHUB_OUTPUT
+          "dry_run=$($isDryRun.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+          Write-Host "tag     = $tag"
+          Write-Host "version = $version"
+          Write-Host "ref     = $checkoutRef"
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ steps.meta.outputs.ref }}
           fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.x'
-
-      - name: Resolve version from tag
-        id: meta
-        shell: pwsh
-        run: |
-          $tag = '${{ inputs.tag || github.ref_name }}'
-          if ($tag -notmatch '^v\d+\.\d+\.\d+') {
-            throw "tag '$tag' 不符合 v<major>.<minor>.<patch> 约定，拒绝发版"
-          }
-          $version = $tag.Substring(1)
-          "tag=$tag"         >> $env:GITHUB_OUTPUT
-          "version=$version" >> $env:GITHUB_OUTPUT
-          Write-Host "tag = $tag"
-          Write-Host "version = $version"
 
       - name: Publish (self-contained single-file exe)
         shell: pwsh
@@ -127,7 +162,17 @@ jobs:
           Write-Host '--- assets ---'
           Get-ChildItem dist/assets | Select-Object Name, Length | Format-Table -AutoSize
 
+      # 试跑模式：产物作为构建产物保留，方便下载检查，但不发布
+      - name: Upload dry-run artifacts
+        if: steps.meta.outputs.dry_run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: SvcTool-dry-run-${{ github.run_number }}
+          path: dist/assets/*
+          retention-days: 7
+
       - name: Create / update GitHub Release
+        if: steps.meta.outputs.dry_run != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
@@ -145,6 +190,7 @@ jobs:
   # 「用 GITHUB_TOKEN 产生的事件不会再触发新的 workflow 运行」，那个事件永远到不了。
   mirror:
     needs: build
+    if: needs.build.outputs.dry_run != 'true'
     permissions:
       contents: read
     uses: ./.github/workflows/mirror-cnb.yml

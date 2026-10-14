@@ -1,0 +1,62 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        浅色主题的颜色。
+
+        这个文件由 Themes/ThemeManager.cs 在运行时按系统主题加载或卸载，
+        不要手动在别处引用。写法与配色依据见 Colors.xaml 的说明和
+        UI设计.md 第 3 节。
+    -->
+
+    <!-- 基础界面 -->
+    <SolidColorBrush x:Key="App.Surface"       Color="#FFFFFF" />
+    <SolidColorBrush x:Key="App.SurfaceAlt"    Color="#FAFAFA" />
+    <SolidColorBrush x:Key="App.Border"        Color="#E5E5E5" />
+    <SolidColorBrush x:Key="App.BorderStrong"  Color="#D6D6D6" />
+    <SolidColorBrush x:Key="App.Text"          Color="#1B1B1B" />
+    <SolidColorBrush x:Key="App.TextSecondary" Color="#5D5D5D" />
+    <SolidColorBrush x:Key="App.TextTertiary"  Color="#8A8A8A" />
+
+    <!-- 落在强调色底上的文字颜色。浅色主题的强调色偏深，用白色文字 -->
+    <SolidColorBrush x:Key="App.TextOnAccent"  Color="#FFFFFF" />
+
+    <!-- 交互态用 alpha 叠加，避免和底色耦合 -->
+    <SolidColorBrush x:Key="App.Hover"         Color="#0A000000" />
+    <SolidColorBrush x:Key="App.Pressed"       Color="#14000000" />
+    <SolidColorBrush x:Key="App.Selected"      Color="#0F000000" />
+
+    <!-- 服务状态色（核心配色） -->
+    <SolidColorBrush x:Key="App.StatusRunning" Color="#0F7B0F" />
+    <SolidColorBrush x:Key="App.StatusStopped" Color="#8A8A8A" />
+    <SolidColorBrush x:Key="App.StatusPending" Color="#C87F00" />
+    <SolidColorBrush x:Key="App.StatusPaused"  Color="#0F6CBD" />
+    <SolidColorBrush x:Key="App.StatusFailed"  Color="#C42B1C" />
+
+    <!-- 信息条语义色 -->
+    <SolidColorBrush x:Key="App.Success"       Color="#0F7B0F" />
+    <SolidColorBrush x:Key="App.Warning"       Color="#C87F00" />
+    <SolidColorBrush x:Key="App.Error"         Color="#C42B1C" />
+    <SolidColorBrush x:Key="App.Info"          Color="#0F6CBD" />
+
+    <!-- 服务分类色 -->
+    <SolidColorBrush x:Key="App.CategoryDriver" Color="#8E4EC6" />
+    <SolidColorBrush x:Key="App.CategorySystem" Color="#5B6470" />
+    <SolidColorBrush x:Key="App.CategoryUser"   Color="#0E7C7B" />
+
+    <!-- 分类徽章底色：主色 15% 透明度，既看得出分类又不喧宾夺主 -->
+    <SolidColorBrush x:Key="App.CategoryDriverSoft" Color="#268E4EC6" />
+    <SolidColorBrush x:Key="App.CategorySystemSoft" Color="#265B6470" />
+    <SolidColorBrush x:Key="App.CategoryUserSoft"   Color="#260E7C7B" />
+
+    <!-- 信息条底色与描边（语义色的低透明度版本） -->
+    <SolidColorBrush x:Key="App.SuccessSoft"   Color="#140F7B0F" />
+    <SolidColorBrush x:Key="App.WarningSoft"   Color="#14C87F00" />
+    <SolidColorBrush x:Key="App.ErrorSoft"     Color="#14C42B1C" />
+    <SolidColorBrush x:Key="App.InfoSoft"      Color="#140F6CBD" />
+    <SolidColorBrush x:Key="App.SuccessBorder" Color="#660F7B0F" />
+    <SolidColorBrush x:Key="App.WarningBorder" Color="#66C87F00" />
+    <SolidColorBrush x:Key="App.ErrorBorder"   Color="#66C42B1C" />
+    <SolidColorBrush x:Key="App.InfoBorder"    Color="#660F6CBD" />
+
+</ResourceDictionary>

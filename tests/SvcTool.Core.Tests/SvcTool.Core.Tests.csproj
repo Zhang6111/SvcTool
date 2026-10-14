@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      目标框架必须和被测项目一致。SvcTool.Core 是 net10.0-windows
+      （它本质就是调用 Windows 服务控制管理器），这里跟着选同一个。
+    -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>SvcTool.Core.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+
+    <!-- 要引用界面项目来测试 MVVM 基础设施，所以需要 WPF 支持 -->
+    <UseWPF>true</UseWPF>
+
+    <!--
+      测试方法数量多、名字本身就是说明，不强制写文档注释，
+      否则每个测试方法都要加一段没信息量的 /// <summary>。
+    -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SvcTool.Core\SvcTool.Core.csproj" />
+    <ProjectReference Include="..\..\src\SvcTool\SvcTool.csproj" />
+  </ItemGroup>
+
+</Project>

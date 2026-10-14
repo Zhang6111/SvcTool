@@ -1,0 +1,38 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        颜色定义（与主题无关的部分）。
+
+        界面里不允许出现写死的颜色值，一律引用这里的键。
+
+        ================== 关于主题切换机制的说明 ==================
+
+        注意：WPF 没有 WinUI/UWP 那样的 ThemeDictionaries 功能，主题色必须
+        自己实现切换。本项目的做法是：
+
+          1. Colors.Light.xaml 和 Colors.Dark.xaml 各存一套完整的主题色
+          2. App.xaml 把其中一份合并进来
+          3. 运行时由 Themes/ThemeManager.cs 在系统主题变化时把那一份换掉
+          4. 界面里所有主题色都用 DynamicResource 引用（不是 StaticResource），
+             这样字典被换掉时界面会自动重新取值
+
+        这个文件只放两种主题下取值相同的键。凡是浅色/深色不一样的，
+        都放到 Colors.Light.xaml / Colors.Dark.xaml 里去。
+    -->
+
+    <!--
+        强调色直接复用 Windows 的系统强调色，不写死。
+        用户在「个性化 → 颜色」里改主题色，界面会跟着变。
+
+        系统强调色本身由 WPF 根据当前主题给出合适的明暗，所以不需要分主题。
+    -->
+    <SolidColorBrush x:Key="App.Accent"
+                     Color="{StaticResource {x:Static SystemColors.AccentColorKey}}" />
+
+    <!-- 强调色的低透明度版本，用于选中态背景（列表选中行、分段控件等） -->
+    <SolidColorBrush x:Key="App.AccentSoft"
+                     Color="{StaticResource {x:Static SystemColors.AccentColorKey}}"
+                     Opacity="0.12" />
+
+</ResourceDictionary>

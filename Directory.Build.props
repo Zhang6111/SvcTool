@@ -1,24 +1,89 @@
 <Project>
 
   <!--
-    版本号的单一来源。
+    这个文件对所有项目生效，用来集中管理公共设置。
+    单个项目里不要再重复写这里已有的设置，避免两处不一致。
 
-    - 本地构建 / Visual Studio：使用下面的默认值
-    - CI：GitHub Actions 通过 `-p:Version=<tag 去掉 v>` 覆盖
-      （命令行属性优先级高于 Directory.Build.props，所以这里不用担心被覆盖失败）
-
-    发版时只需要推一个形如 v1.2.3 的 tag，其余全部由 CI 注入。
+    说明见 设计文档.md 第 1.9 节。
   -->
+
+  <!-- ================================================================ -->
+  <!-- 版本号与程序集元数据                                             -->
+  <!-- ================================================================ -->
   <PropertyGroup>
-    <Version>0.1.0</Version>
+
+    <!--
+      版本号的单一来源。
+
+      - 本地构建 / Visual Studio：使用下面的默认值
+      - CI：GitHub Actions 通过 `-p:Version=<tag 去掉 v>` 覆盖
+        （命令行属性优先级高于本文件，不会被这里的值挡住）
+
+      默认值刻意写成 0.0.0-dev，让本地随手构建的产物在版本号上
+      就与正式发布区分开。
+
+      发版时只需推一个形如 v1.2.3 的 tag，其余全部由 CI 注入。
+    -->
+    <Version>0.0.0-dev</Version>
+
     <Product>SvcTool</Product>
     <AssemblyTitle>SvcTool</AssemblyTitle>
-    <Description>将 exe 注册为 Windows 服务的工具，便于服务器/电脑重启后程序自动运行</Description>
+    <Description>将 exe 注册为 Windows 服务的图形化管理工具</Description>
     <Company>Zhang6111</Company>
     <Authors>Zhang6111</Authors>
     <Copyright>Copyright (c) 2026 Zhang6111</Copyright>
     <RepositoryUrl>https://github.com/Zhang6111/SvcTool</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+
+  </PropertyGroup>
+
+  <!-- ================================================================ -->
+  <!-- 编译设置：语言特性                                               -->
+  <!-- ================================================================ -->
+  <PropertyGroup>
+
+    <LangVersion>latest</LangVersion>
+
+    <!-- 强制处理可能为 null 的引用，杜绝最常见的空引用崩溃 -->
+    <Nullable>enable</Nullable>
+
+    <!-- 隐式 using，减少每个文件顶部的样板代码 -->
+    <ImplicitUsings>enable</ImplicitUsings>
+
+  </PropertyGroup>
+
+  <!-- ================================================================ -->
+  <!-- 编译设置：规范由编译器强制                                       -->
+  <!-- ================================================================ -->
+  <PropertyGroup>
+
+    <!-- 开启 .NET SDK 内置的代码分析器（无需任何 NuGet 包） -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+
+    <!-- 让 .editorconfig 里的代码风格规则也参与编译检查 -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- 生成 XML 文档，缺注释的公开成员会产生 CS1591 警告 -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!--
+      把警告当错误。
+
+      这意味着：漏写文档注释、用了可能为 null 的变量、命名不合规，
+      都会直接导致编译失败。规范不靠自觉，靠编译器。
+
+      如果将来某个规则确实不合理，在 .editorconfig 里单独降级，
+      不要整体关掉这一项。
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!--
+      例外：NuGet 的安全公告类警告不阻断构建。
+      这类警告需要人工判断是否真的受影响，不适合一律当错误。
+    -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+
   </PropertyGroup>
 
 </Project>
