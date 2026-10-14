@@ -40,6 +40,12 @@ GitHub Actions 跑在国外的机器上，构建没问题；但 Release 附件�
 
 这些地址**不需要任何鉴权**（公开仓库），国内走 CDN。
 
+> **在 CNB 网页上哪里找产物？**
+> 在 **「版本 / Release」** 里，不在「制品 / Packages」里。
+> 这两套东西在 CNB 上是分开的：**制品（Packages）** 是 npm / maven / docker / pypi 那类依赖仓库，需要单独创建、走包管理协议；**Release 附件** 才是挂在 git tag 上的文件，等价于 GitHub Releases。
+> 本项目用的是后者，所以 **Packages 标签页是空的属于正常现象**。
+> 查看位置：`https://cnb.cool/zmzhao/SvcTool/-/releases`
+
 `version.json` 结构（由 workflow 自动生成，字段保持稳定）：
 
 ```json
