@@ -4,6 +4,22 @@ name: Mirror release to CNB
 # 触发链：build-release.yml 建好 GitHub Release -> release published -> 这里。
 # 失败不影响 GitHub 侧的发版，缺什么用 workflow_dispatch 指定 tag 补跑即可。
 on:
+  # 主路径：build-release.yml 建完 Release 后直接调用本 workflow。
+  # 为什么不用 release: published 触发？因为 build-release.yml 是用默认的
+  # GITHUB_TOKEN 建 Release 的，而 GitHub 规定「用 GITHUB_TOKEN 产生的事件
+  # 不会再触发新的 workflow 运行」（防递归），所以那个事件永远不会到达。
+  workflow_call:
+    inputs:
+      tag:
+        description: 要镜像到 CNB 的 tag
+        required: true
+        type: string
+      prerelease:
+        description: 是否为预发布版本
+        required: false
+        type: boolean
+        default: false
+  # 兜底：在 GitHub 网页上「手动」发布 Release 时会走这里（这是用户行为，能触发）
   release:
     types: [published]
   workflow_dispatch:
@@ -38,8 +54,17 @@ jobs:
             echo '::error::无法确定要镜像的 tag'
             exit 1
           fi
+
+          # 预发布版本不抢 latest，否则程序内更新会把用户升到 beta
+          if [ '${{ inputs.prerelease || github.event.release.prerelease }}' = 'true' ]; then
+            make_latest=false
+          else
+            make_latest=true
+          fi
+
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "resolved tag: $tag"
+          echo "make_latest=$make_latest" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag  make_latest=$make_latest"
 
       # 没配 secret 时不要挂红叉，给个明确提示然后跳过
       - name: Check CNB_TOKEN
@@ -99,8 +124,7 @@ jobs:
           title: ${{ steps.meta.outputs.tag }}
           dir: dist
           token: ${{ secrets.CNB_TOKEN }}
-          # 预发布版本不抢 latest，否则程序内更新会升到 beta 版
-          make-latest: ${{ github.event.release.prerelease && 'false' || 'true' }}
+          make-latest: ${{ steps.meta.outputs.make_latest }}
           body: |
             本版同步自 GitHub Release `${{ steps.meta.outputs.tag }}`。
 

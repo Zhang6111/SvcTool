@@ -13,18 +13,20 @@ GitHub Actions 跑在国外的机器上，构建没问题；但 Release 附件�
 ```
 本地 push tag v1.2.3
         │
-        ├─► Build and Release        windows-latest 构建 → 创建 GitHub Release
+        ├─► Sync code to CNB        全部分支/标签镜像到 CNB（与下面并行，互不依赖）
         │
-        └─► Sync code to CNB         全部分支/标签镜像到 CNB
+        └─► Build and Release       windows-latest 构建 → 打包 → 创建 GitHub Release
                     │
-                    ▼
-        Build and Release 建好 Release
-                    │
-                    ▼
-        Mirror release to CNB        下载 GitHub 附件 → 上传到 CNB Release
+                    └──(workflow_call)──► Mirror release to CNB
+                                          下载 GitHub 附件 → 上传到 CNB Release → 校验直链
 ```
 
-三个 workflow 相互独立，任何一个失败都不影响另外两个，缺什么用 `workflow_dispatch` 补跑即可。
+**为什么 Mirror 是 `workflow_call` 而不是监听 `release: published`？**
+因为 `build-release.yml` 用默认的 `GITHUB_TOKEN` 创建 Release，而 GitHub 规定「**用 `GITHUB_TOKEN` 产生的事件不会再触发新的 workflow 运行**」（防止递归）。所以 `release: published` 对 CI 建的 Release 永远不触发 —— 这个坑踩过一次。
+
+`mirror-cnb.yml` 仍保留了 `release: published` 作为兜底，用于你**在网页上手动**发 Release 的场景（那是用户行为，能正常触发）。
+
+任何一个环节失败都不影响其他环节，缺什么用 `workflow_dispatch` 指定 tag 补跑即可。
 
 ## 下载地址约定
 
@@ -146,10 +148,11 @@ Directory.Build.props       版本号与程序集元数据的单一来源
 - CNB 的 OpenAPI（`api.cnb.cool`）**即使对公开仓库也要求登录**，所以程序内更新**不要**调 API，只用上面「下载地址约定」里的网页直链。
 - 目前只产出 `.exe` 和 `.zip`。将来要加 msi，改动集中在 `build-release.yml` 的打包步骤。
 - 没配 `CNB_TOKEN` 时两个同步 workflow 会打一条 warning 然后跳过，不会挂红叉。
+- **产物文件名必须是 ASCII**。`publish.sh` 是在 Linux runner 上跑的，UTF-8 没问题；但如果你在 **Windows 上用 Git Bash 本地调试** `publish.sh`，jq 的 argv 编码转换会把中文文件名变成 `?`，导致附件存成乱名、按原名下载 404。本地调试请用 ASCII 文件名。（真实产物名由 `build-release.yml` 生成，全是 ASCII。）
 
 ## CNB Release 接口实测结论
 
-以下都是 2026-10 在这台机器上实测确认的，不是文档推断：
+以下都是 2026-10 实测确认的，不是文档推断：
 
 | 结论 | 说明 |
 | --- | --- |
@@ -157,4 +160,6 @@ Directory.Build.props       版本号与程序集元数据的单一来源
 | **上传用 `PUT` + `--data-binary`** | `upload_url` 只接受这一种。`PUT --upload-file`、`POST --data-binary`、`POST multipart` 全部返回 400。 |
 | `upload_url` 在 `asset.cnb.cool` | 预签名地址，`expires_in_sec` 为 43200（12 小时），不需要额外带鉴权头。 |
 | 必须调 `verify_url` | 上传完要 `POST verify_url` 确认，否则附件不生效。 |
-| **匿名可下载** | `https://cnb.cool/<repo>/-/releases/download/<tag>/<file>` 不带任何鉴权即可下载，已验证字节数一致。 |
+| **匿名可下载** | `https://cnb.cool/<repo>/-/releases/download/<tag>/<file>` 不带任何鉴权即可下载，已验证字节数与本地一致。 |
+| `make_latest` 是字符串 | 取值 `"true"` / `"false"` / `"legacy"`，不是布尔。 |
+| 删除 tag | `DELETE /{repo}/-/git/tags/{tag}`，返回 204。 |

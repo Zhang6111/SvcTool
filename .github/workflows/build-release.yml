@@ -27,6 +27,8 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
 
     steps:
       - name: Checkout
@@ -136,3 +138,17 @@ jobs:
           prerelease: false
           # 重跑时覆盖同名附件
           overwrite_files: true
+
+  # 构建完成后立刻同步到 CNB。
+  # 这里用 workflow_call 显式调用，而不是靠 mirror-cnb.yml 的 release: published 触发 ——
+  # 因为上面那个 Release 是用默认 GITHUB_TOKEN 建的，而 GitHub 规定
+  # 「用 GITHUB_TOKEN 产生的事件不会再触发新的 workflow 运行」，那个事件永远到不了。
+  mirror:
+    needs: build
+    permissions:
+      contents: read
+    uses: ./.github/workflows/mirror-cnb.yml
+    with:
+      tag: ${{ needs.build.outputs.tag }}
+      prerelease: false
+    secrets: inherit
