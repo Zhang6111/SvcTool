@@ -58,6 +58,14 @@ publish/
 *.appxbundle
 *.msixbundle
 
+## 设计文档与原型：本地文件，不入库
+/需求文档.md
+/UI设计.md
+/设计文档.md
+/开发任务.md
+/测试清单.md
+/prototype/
+
 ## OS / editor temp
 .DS_Store
 Thumbs.db
