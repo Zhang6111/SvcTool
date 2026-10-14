@@ -75,9 +75,11 @@ GitHub Actions 跑在国外的机器上，构建没问题；但 Release 附件�
 版本号的唯一来源是 **tag**，`Directory.Build.props` 里的 `<Version>` 只是本地默认值：
 
 ```bash
-git tag v1.2.3
+git tag -a v1.2.3 -m "v1.2.3"
 git push origin v1.2.3
 ```
+
+> 用附注标签（`-a`）而不是轻量标签，版本信息里会带上打标签的人和时间。
 
 推完就等着。CI 会：
 
@@ -85,7 +87,7 @@ git push origin v1.2.3
 2. `dotnet publish` 出自包含单文件 `SvcTool.exe`
 3. 打包出 `.exe` 和 `.zip`，并生成 `version.json`
 4. 创建 GitHub Release（附件：exe / zip / version.json）
-5. 自动触发镜像，把上面三个文件发布到 CNB Release
+5. 紧接着用 `workflow_call` 调起镜像，把上面三个文件发布到 CNB Release
 
 **补跑**：任何一步失败，去 Actions 页面手动跑对应 workflow：
 
@@ -109,15 +111,18 @@ git push origin v1.2.3
 
 当前硬编码为 `zmzhao/SvcTool`，散落在三个 workflow 的 `env.CNB_REPO`。换仓库时三个文件都要改。
 
-### 3. 首次接入前先跑一遍实测
+### 3. CNB 上传方式（已实测确认，一般不用动）
 
-CNB 的附件上传接口没有在文档里写明期望的 HTTP 方法，所以首次接入前先用本地脚本确认一遍：
+2026-10 已实测确认：上传必须用 `PUT` + `--data-binary`，详见下方「CNB Release 接口实测结论」。
+`.github/actions/cnb-release/action.yml` 里的默认值就是这个，正常情况下不需要改。
+
+如果哪天 CNB 改了行为（比如上传开始返回 400），用本地脚本重新确认一遍：
 
 ```powershell
 .\scripts\cnb-smoke-test.ps1 -Token '<你的 CNB 令牌>'
 ```
 
-脚本会依次验证令牌、tag、创建 Release、上传附件、匿名下载，最后打印结论。如果实测出的上传方式和 `.github/actions/cnb-release/action.yml` 里的默认值（`PUT`）不一致，改那个 input 即可。
+脚本会依次验证令牌、tag、创建 Release、上传附件、匿名下载，并打印结论。若实测出来的方式和 action 里的默认值不一致，改 `upload-method` 那个 input 即可，其余代码不用动。
 
 ## 本地开发
 
